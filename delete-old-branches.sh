@@ -1,10 +1,10 @@
 # Constants
 SLEEP_TIME=2
 MAX_DELETIONS=4000
-BRANCH_AGE_LIMIT=1
+BRANCH_AGE_LIMIT=0
 CHECK_MERGED=true
 BRANCH_NAME_PART=""
-PROTECTED_BRANCHES=("master" "main" "production" "stage") # Add protected branches here
+PROTECTED_BRANCHES=("origin" "master" "main" "production" "stage") # Add protected branches here
 MERGE_CHECK_BRANCH="origin/master" # Add the branch name to check if other branches have been merged into
 
 # Fetch all remote branches
@@ -38,15 +38,15 @@ for branch in $(git branch -r --format '%(refname:short) %(committerdate:unix)')
     branch_name=$(echo $branch | cut -f1 -d' ' | sed 's/^origin\///')
 
     # Calculate age of branch
-    branch_age_years=$(( (current_date - commit_date) / 31536000 ))
+    branch_age_years=$(echo "scale=2; ($current_date - $commit_date) / 31536000" | bc)
     echo "Branch $branch_name is $branch_age_years years old."
 
-# If branch is older than BRANCH_AGE_LIMIT years, branch name contains BRANCH_NAME_PART (case insensitive),
-# branch is not in the list of protected branches, and we haven't deleted MAX_DELETIONS branches yet
-if [ $branch_age_years -gt $BRANCH_AGE_LIMIT ] && \
-   [[ $(echo "$branch_name" | tr '[:upper:]' '[:lower:]') == *$(echo "$BRANCH_NAME_PART" | tr '[:upper:]' '[:lower:]')* ]] && \
-   ! [[ " ${PROTECTED_BRANCHES[@]} " =~ " ${branch_name} " ]] && \
-   [ $delete_counter -lt $MAX_DELETIONS ]; then
+    # If branch is older than BRANCH_AGE_LIMIT years, branch name contains BRANCH_NAME_PART (case insensitive),
+    # branch is not in the list of protected branches, and we haven't deleted MAX_DELETIONS branches yet
+    if (( $(echo "$branch_age_years > $BRANCH_AGE_LIMIT" | bc -l) )) && \
+       [[ $(echo "$branch_name" | tr '[:upper:]' '[:lower:]') == *$(echo "$BRANCH_NAME_PART" | tr '[:upper:]' '[:lower:]')* ]] && \
+       ! [[ " ${PROTECTED_BRANCHES[@]} " =~ " ${branch_name} " ]] && \
+       [ $delete_counter -lt $MAX_DELETIONS ]; then
 
         # If CHECK_MERGED is true, check if the branch has been merged into MERGE_CHECK_BRANCH
         if $CHECK_MERGED && ! git branch -r --merged $MERGE_CHECK_BRANCH | grep -q "$branch_name"; then
